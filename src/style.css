@@ -127,3 +127,28 @@ button, input, textarea { font: inherit; }
   .app-shell { min-height: calc(100dvh - 36px); border-radius: 28px; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+
+/* 多设备合并面板与同句冲突确认 */
+.merge-panel .dictation-label { margin-top: 14px; }
+.device-row label { display: block; font-size: .74rem; color: var(--muted); margin-bottom: 6px; }
+.device-input { display: flex; align-items: center; gap: 10px; }
+.device-input input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 12px; padding: 9px 11px; background: var(--card); color: var(--text); }
+.op-count { white-space: nowrap; font-size: .66rem; color: var(--muted); }
+.merge-code-row { display: flex; gap: 8px; }
+.merge-code-box { width: 100%; margin-top: 9px; border: 1px solid var(--line); border-radius: 13px; padding: 11px; background: var(--card); color: var(--text); font-size: .68rem; line-height: 1.5; resize: vertical; }
+.merge-code-box[readonly] { background: color-mix(in srgb, var(--soft) 55%, var(--card)); max-height: 110px; }
+.import-box { min-height: 84px; margin-bottom: 9px; }
+.import-message { font-size: .72rem; line-height: 1.55; margin: 9px 2px 0; padding: 9px 11px; border-radius: 10px; }
+.import-message.ok { background: #e9f8f2; color: #126c50; }
+.import-message.error { background: #fff0f0; color: var(--danger); }
+.conflict-panel { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
+.conflict-count { background: var(--danger); color: white; border-radius: 999px; min-width: 22px; height: 22px; display: inline-grid; place-items: center; font-size: .68rem; font-weight: 800; padding: 0 6px; }
+.conflict-block { border-top: 1px solid var(--line); padding: 12px 0 2px; margin-top: 10px; }
+.conflict-block > strong { font-size: .8rem; }
+.candidate-row { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
+.candidate-text { flex: 1; min-width: 0; background: var(--soft); border-radius: 11px; padding: 9px 11px; }
+.candidate-device { font-size: .64rem; color: var(--primary); font-weight: 700; }
+.candidate-text p { margin: 3px 0 0; font-size: .76rem; line-height: 1.5; word-break: break-word; }
+.conflict-banner { border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--line)); background: color-mix(in srgb, var(--danger) 7%, var(--card)); border-radius: 15px; padding: 12px; margin-bottom: 10px; }
+.conflict-banner > strong { font-size: .78rem; color: var(--danger); }
+.conflict-hint { margin: 8px 2px 0; font-size: .66rem; color: var(--muted); }

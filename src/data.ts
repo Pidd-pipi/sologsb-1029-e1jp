@@ -1,4 +1,4 @@
-import type { Course, PersistedState } from './types';
+import type { Course, LegacyPersistedState } from './types';
 
 export const demoCourses: Course[] = [
   {
@@ -64,7 +64,11 @@ export const demoCourses: Course[] = [
   }
 ];
 
-export const createInitialState = (): PersistedState => ({
+/**
+ * 初始演示数据仍按 v1 结构描述，由 sync.createV2InitialState 走统一迁移路径
+ * 转成追加操作日志，确保“旧数据兼容”和“新数据产生”走同一条归约逻辑。
+ */
+export const createInitialState = (): LegacyPersistedState => ({
   schemaVersion: 1,
   courses: structuredClone(demoCourses),
   attempts: [
