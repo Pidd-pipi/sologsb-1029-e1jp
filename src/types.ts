@@ -2,6 +2,34 @@ export type ErrorCategory = 'unclassified' | 'spelling' | 'omitted' | 'extra' | 
 export type PracticeView = 'library' | 'practice' | 'result' | 'teacher';
 export type ThemeMode = 'light' | 'dark';
 
+// 追加操作日志：每次作答、进度变更、提交、分类修订、教师反馈、下载标记都生成一条操作。
+export type OpType = 'answer' | 'progress' | 'attempt' | 'classification' | 'feedback' | 'download';
+
+export interface OpEnvelope {
+  /** 全局唯一操作标识：`${deviceId}:${seq}`，用于重复导入去重。 */
+  id: string;
+  deviceId: string;
+  /** 单设备内单调递增的顺序号。 */
+  seq: number;
+  type: OpType;
+  createdAt: string;
+  payload: Record<string, unknown>;
+}
+
+/** 同一句在不同设备上答案不一致时，保留两份供人工确认。 */
+export interface MergeConflictOption {
+  deviceId: string;
+  answer: string;
+  createdAt: string;
+}
+
+export interface MergeConflict {
+  key: string;
+  lessonId: string;
+  sentenceId: string;
+  options: MergeConflictOption[];
+}
+
 export interface Sentence {
   id: string;
   text: string;
@@ -64,7 +92,13 @@ export interface LessonProgress {
 }
 
 export interface PersistedState {
-  schemaVersion: 1;
+  schemaVersion: 2;
+  /** 本机设备标识，合并码中用于区分操作来源。 */
+  deviceId: string;
+  /** 追加操作日志，合并与迁移都以它为来源。 */
+  ops: OpEnvelope[];
+  /** 合并后待人工确认的答案冲突。 */
+  mergeConflicts: MergeConflict[];
   courses: Course[];
   attempts: PracticeAttempt[];
   progress: Record<string, LessonProgress>;

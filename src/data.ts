@@ -1,4 +1,11 @@
-import type { Course, PersistedState } from './types';
+import type { Course, PersistedState, PracticeAttempt } from './types';
+
+export const createDeviceId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `dev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+};
 
 export const demoCourses: Course[] = [
   {
@@ -64,51 +71,70 @@ export const demoCourses: Course[] = [
   }
 ];
 
-export const createInitialState = (): PersistedState => ({
-  schemaVersion: 1,
-  courses: structuredClone(demoCourses),
-  attempts: [
-    {
-      id: 'demo-attempt-1',
-      lessonId: 'airport-01',
-      lessonTitle: '办理值机',
-      courseTitle: '日常英语 · 机场与出行',
-      submittedAt: '2026-09-24T10:20:00.000Z',
-      score: 84,
-      teacherFeedback: '连读细节明显进步。注意 bags are 的词尾衔接，再听一遍第二句。',
-      sentenceAttempts: [
-        {
-          sentenceId: 'airport-01-s1',
-          source: 'I would like to check in for my flight to London.',
-          answer: 'I would like to check in for my flight to London',
-          score: 94,
-          tokens: [
-            { index: 0, expected: 'I', actual: 'I', correct: true, category: 'unclassified', reason: '' },
-            { index: 1, expected: 'would', actual: 'would', correct: true, category: 'unclassified', reason: '' },
-            { index: 2, expected: 'like', actual: 'like', correct: true, category: 'unclassified', reason: '' },
-            { index: 3, expected: 'to', actual: 'to', correct: true, category: 'unclassified', reason: '' },
-            { index: 4, expected: 'check', actual: 'check', correct: true, category: 'unclassified', reason: '' },
-            { index: 5, expected: 'in', actual: 'in', correct: true, category: 'unclassified', reason: '' },
-            { index: 6, expected: 'for', actual: 'for', correct: true, category: 'unclassified', reason: '' },
-            { index: 7, expected: 'my', actual: 'my', correct: true, category: 'unclassified', reason: '' },
-            { index: 8, expected: 'flight', actual: 'flight', correct: true, category: 'unclassified', reason: '' },
-            { index: 9, expected: 'to', actual: 'to', correct: true, category: 'unclassified', reason: '' },
-            { index: 10, expected: 'London', actual: 'London', correct: true, category: 'unclassified', reason: '' }
-          ]
-        }
-      ]
+export const createInitialState = (): PersistedState => {
+  const deviceId = createDeviceId();
+  const ops: PersistedState['ops'] = [];
+  let seq = 0;
+  const pushOp = (type: PersistedState['ops'][number]['type'], createdAt: string, payload: Record<string, unknown>) => {
+    seq += 1;
+    ops.push({ id: `${deviceId}:${seq}`, deviceId, seq, type, createdAt, payload });
+  };
+  const demoAttempt: PracticeAttempt = {
+    id: 'demo-attempt-1',
+    lessonId: 'airport-01',
+    lessonTitle: '办理值机',
+    courseTitle: '日常英语 · 机场与出行',
+    submittedAt: '2026-09-24T10:20:00.000Z',
+    score: 84,
+    teacherFeedback: '连读细节明显进步。注意 bags are 的词尾衔接，再听一遍第二句。',
+    sentenceAttempts: [
+      {
+        sentenceId: 'airport-01-s1',
+        source: 'I would like to check in for my flight to London.',
+        answer: 'I would like to check in for my flight to London',
+        score: 94,
+        tokens: [
+          { index: 0, expected: 'I', actual: 'I', correct: true, category: 'unclassified', reason: '' },
+          { index: 1, expected: 'would', actual: 'would', correct: true, category: 'unclassified', reason: '' },
+          { index: 2, expected: 'like', actual: 'like', correct: true, category: 'unclassified', reason: '' },
+          { index: 3, expected: 'to', actual: 'to', correct: true, category: 'unclassified', reason: '' },
+          { index: 4, expected: 'check', actual: 'check', correct: true, category: 'unclassified', reason: '' },
+          { index: 5, expected: 'in', actual: 'in', correct: true, category: 'unclassified', reason: '' },
+          { index: 6, expected: 'for', actual: 'for', correct: true, category: 'unclassified', reason: '' },
+          { index: 7, expected: 'my', actual: 'my', correct: true, category: 'unclassified', reason: '' },
+          { index: 8, expected: 'flight', actual: 'flight', correct: true, category: 'unclassified', reason: '' },
+          { index: 9, expected: 'to', actual: 'to', correct: true, category: 'unclassified', reason: '' },
+          { index: 10, expected: 'London', actual: 'London', correct: true, category: 'unclassified', reason: '' }
+        ]
+      }
+    ]
+  };
+  pushOp('attempt', demoAttempt.submittedAt, { attempt: demoAttempt });
+  pushOp('answer', '2026-09-24T10:10:00.000Z', { lessonId: 'airport-01', sentenceId: 'airport-01-s1', answer: 'I would like to check in for my flight to London' });
+  pushOp('progress', '2026-09-24T10:10:00.000Z', { lessonId: 'airport-01', activeSentenceId: 'airport-01-s2' });
+  for (const course of demoCourses) {
+    for (const lesson of course.lessons) {
+      pushOp('download', '2026-01-01T00:00:00.000Z', { lessonId: lesson.id, downloaded: lesson.downloaded });
     }
-  ],
-  progress: {
-    'airport-01': {
-      answers: { 'airport-01-s1': 'I would like to check in for my flight to London' },
-      activeSentenceId: 'airport-01-s2',
-      updatedAt: '2026-09-24T10:10:00.000Z'
-    }
-  },
-  activeLessonId: '',
-  activeSentenceId: '',
-  theme: 'light',
-  fontScale: 1,
-  role: 'learner'
-});
+  }
+  return {
+    schemaVersion: 2,
+    deviceId,
+    ops,
+    mergeConflicts: [],
+    courses: structuredClone(demoCourses),
+    attempts: [demoAttempt],
+    progress: {
+      'airport-01': {
+        answers: { 'airport-01-s1': 'I would like to check in for my flight to London' },
+        activeSentenceId: 'airport-01-s2',
+        updatedAt: '2026-09-24T10:10:00.000Z'
+      }
+    },
+    activeLessonId: '',
+    activeSentenceId: '',
+    theme: 'light',
+    fontScale: 1,
+    role: 'learner'
+  };
+};

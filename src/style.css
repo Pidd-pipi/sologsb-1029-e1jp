@@ -122,6 +122,24 @@ button, input, textarea { font: inherit; }
 .segmented button.active { background: var(--card); color: var(--text); box-shadow: 0 1px 5px rgb(0 0 0 / .09); font-weight: 700; }
 .empty-state { text-align: center; padding: 36px 20px; color: var(--muted); }
 .empty-state strong { display: block; color: var(--text); margin-bottom: 7px; }
+
+/* 记录合并 */
+.merge-panel .merge-device { font-size: .72rem; color: var(--muted); margin: 0 0 10px; word-break: break-all; }
+.merge-panel code { background: var(--soft); padding: 2px 6px; border-radius: 6px; font-size: .68rem; }
+.merge-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+.merge-code { width: 100%; min-height: 76px; border: 1px solid var(--line); border-radius: 12px; padding: 10px; font-size: .68rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--soft); color: var(--text); resize: vertical; margin-bottom: 6px; }
+.merge-message { font-size: .72rem; margin: 10px 0 0; line-height: 1.55; color: var(--success); }
+.merge-message.error { color: var(--danger); }
+.conflict-panel { border-color: var(--danger); }
+.conflict-hint { font-size: .72rem; color: var(--muted); margin: 0; }
+.conflict-card { margin-top: 14px; }
+.conflict-card > strong { font-size: .78rem; }
+.conflict-options { display: grid; gap: 8px; margin-top: 8px; }
+.conflict-option { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 12px; padding: 10px 12px; cursor: pointer; text-align: left; }
+.conflict-option.mine { border-color: var(--primary); background: var(--soft); }
+.conflict-device { font-size: .66rem; color: var(--primary); font-weight: 700; }
+.conflict-answer { font-size: .78rem; word-break: break-word; }
+.conflict-time { font-size: .64rem; color: var(--muted); }
 @media (min-width: 600px) {
   body { padding: 18px 0; }
   .app-shell { min-height: calc(100dvh - 36px); border-radius: 28px; }

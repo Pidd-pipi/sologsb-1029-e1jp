@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { courseForLesson, exportRecords, lessonById, persist, saveAttempt, setDownloaded, state, updateTokenClassification } from './store';
-import type { ErrorCategory, Lesson, PracticeAttempt, PracticeView } from './types';
+import { courseForLesson, ensureProgress, exportRecords, generateMergeCode, importMergeCode, lessonById, persist, resolveMergeConflict, saveAttempt, setAnswer, setActiveSentence, setDownloaded, setTeacherFeedback, state, updateTokenClassification } from './store';
+import type { ErrorCategory, Lesson, MergeConflict, PracticeAttempt, PracticeView } from './types';
 import { compareSentence, scoreAttempt, segmentText } from './utils';
 
 const view = ref<PracticeView>(state.activeLessonId ? 'practice' : 'library');
@@ -58,20 +58,18 @@ watch(currentAnswer, (value) => {
   const lesson = activeLesson.value;
   const sentence = currentSentence.value;
   if (!lesson || !sentence) return;
-  const progress = state.progress[lesson.id] ?? { answers: {}, activeSentenceId: sentence.id, updatedAt: new Date().toISOString() };
-  progress.answers[sentence.id] = value;
-  progress.activeSentenceId = sentence.id;
-  progress.updatedAt = new Date().toISOString();
-  state.progress[lesson.id] = progress;
+  // 仅在答案真正变化时追加操作，避免切句时写入重复操作。
+  if (state.progress[lesson.id]?.answers[sentence.id] === value) return;
+  setAnswer(lesson.id, sentence.id, value);
 });
 
 watch(activeLesson, (lesson) => {
   if (!lesson) return;
   state.activeLessonId = lesson.id;
   state.activeSentenceId = currentSentence.value?.id ?? lesson.sentences[0].id;
-  const progress = state.progress[lesson.id] ?? { answers: {}, activeSentenceId: lesson.sentences[0].id, updatedAt: new Date().toISOString() };
+  ensureProgress(lesson.id);
+  const progress = state.progress[lesson.id];
   if (!lesson.sentences.some((sentence) => sentence.id === progress.activeSentenceId)) progress.activeSentenceId = lesson.sentences[0].id;
-  state.progress[lesson.id] = progress;
   state.activeSentenceId = progress.activeSentenceId;
   currentAnswer.value = progress.answers[state.activeSentenceId] ?? '';
 });
@@ -87,8 +85,8 @@ function notify(message: string) {
 }
 
 function startLesson(lesson: Lesson) {
-  const progress = state.progress[lesson.id] ?? { answers: {}, activeSentenceId: lesson.sentences[0].id, updatedAt: new Date().toISOString() };
-  state.progress[lesson.id] = progress;
+  ensureProgress(lesson.id);
+  const progress = state.progress[lesson.id];
   state.activeLessonId = lesson.id;
   state.activeSentenceId = progress.activeSentenceId || lesson.sentences[0].id;
   currentAnswer.value = progress.answers[state.activeSentenceId] ?? '';
@@ -101,12 +99,8 @@ function goToSentence(index: number) {
   if (!lesson || !lesson.sentences[index]) return;
   const target = lesson.sentences[index];
   state.activeSentenceId = target.id;
-  const progress = state.progress[lesson.id];
-  if (progress) {
-    progress.activeSentenceId = target.id;
-    progress.updatedAt = new Date().toISOString();
-  }
-  currentAnswer.value = progress?.answers[target.id] ?? '';
+  setActiveSentence(lesson.id, target.id);
+  currentAnswer.value = state.progress[lesson.id]?.answers[target.id] ?? '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -185,7 +179,7 @@ function saveClassification(attemptId: string, sentenceId: string, tokenIndex: n
 function saveTeacherFeedback() {
   const attempt = teacherAttempt.value;
   if (!attempt) return;
-  attempt.teacherFeedback = teacherDraft.value.trim();
+  setTeacherFeedback(attempt.id, teacherDraft.value.trim());
   persist();
   notify('教师反馈已保存');
 }
@@ -207,6 +201,67 @@ function downloadRecords() {
   anchor.click();
   URL.revokeObjectURL(url);
   notify('练习记录已导出');
+}
+
+// ---------- 合并码 ----------
+
+const mergeCode = ref('');
+const importCode = ref('');
+const mergeMessage = ref('');
+const mergeBusy = ref(false);
+
+function showMergeCode() {
+  mergeCode.value = generateMergeCode();
+  mergeMessage.value = '';
+}
+
+async function copyMergeCode() {
+  if (!mergeCode.value) showMergeCode();
+  try {
+    await navigator.clipboard.writeText(mergeCode.value);
+    notify('合并码已复制');
+  } catch {
+    notify('复制失败，请长按文本手动选择复制');
+  }
+}
+
+function doImport() {
+  if (!importCode.value.trim()) {
+    mergeMessage.value = '请先粘贴另一台设备生成的合并码';
+    return;
+  }
+  mergeBusy.value = true;
+  // 同步执行：失败时本机内容未被改动，可直接重试。
+  const result = importMergeCode(importCode.value);
+  mergeBusy.value = false;
+  mergeMessage.value = result.message;
+  if (result.ok) {
+    importCode.value = '';
+    mergeCode.value = '';
+    notify('合并完成');
+  } else {
+    notify('合并失败，可重新粘贴后重试');
+  }
+}
+
+function resolveConflict(conflict: MergeConflict, answer: string) {
+  resolveMergeConflict(conflict.key, answer);
+  notify('已保留所选答案');
+}
+
+function conflictSentenceLabel(conflict: MergeConflict): string {
+  for (const course of state.courses) {
+    for (const lesson of course.lessons) {
+      if (lesson.id !== conflict.lessonId) continue;
+      const index = lesson.sentences.findIndex((item) => item.id === conflict.sentenceId);
+      return `${lesson.title} · 第 ${index + 1} 句`;
+    }
+  }
+  return '未知句子';
+}
+
+function conflictDeviceLabel(deviceId: string): string {
+  return deviceId === state.deviceId ? '本机' : `设备 ${deviceId.slice(0, 8)}`;
 }
 
 function formatDate(value: string): string {
@@ -268,6 +323,35 @@ onBeforeUnmount(() => {
           <span>{{ online ? '● 在线 · 数据已保存到本机' : '● 离线模式 · 可继续已下载课程' }}</span>
           <span>{{ online ? '本地优先存储' : '恢复网络后继续保存' }}</span>
         </div>
+
+        <div class="section-head"><h3>记录合并</h3><span>多设备断网练习后合并</span></div>
+        <article class="panel merge-panel">
+          <p class="merge-device">本机设备：<code>{{ state.deviceId.slice(0, 12) }}</code> · 已记录 {{ state.ops.length }} 条操作</p>
+          <div class="merge-actions">
+            <var-button type="primary" size="small" @click="showMergeCode">生成合并码</var-button>
+            <var-button size="small" @click="copyMergeCode">复制合并码</var-button>
+          </div>
+          <textarea v-if="mergeCode" :value="mergeCode" readonly class="merge-code" aria-label="本机合并码" @click="($event.target as HTMLTextAreaElement).select()"></textarea>
+          <div class="dictation-label"><strong>导入合并码</strong><span>粘贴另一台设备生成的合并码</span></div>
+          <textarea v-model="importCode" class="merge-code" placeholder="粘贴 EchoStepMerge1: 开头的合并码" aria-label="导入的合并码"></textarea>
+          <var-button block type="primary" :loading="mergeBusy" @click="doImport">导入并合并</var-button>
+          <p v-if="mergeMessage" class="merge-message" :class="{ error: !mergeMessage.includes('合并完成') }">{{ mergeMessage }}</p>
+        </article>
+
+        <article v-if="state.mergeConflicts.length" class="panel conflict-panel">
+          <div class="dictation-label"><strong>待确认的答案冲突</strong><span>{{ state.mergeConflicts.length }} 处</span></div>
+          <p class="conflict-hint">同一句在不同设备上答案不同，请选择要保留的答案：</p>
+          <div v-for="conflict in state.mergeConflicts" :key="conflict.key" class="conflict-card">
+            <strong>{{ conflictSentenceLabel(conflict) }}</strong>
+            <div class="conflict-options">
+              <button v-for="option in conflict.options" :key="option.deviceId" class="conflict-option" :class="{ mine: option.deviceId === state.deviceId }" @click="resolveConflict(conflict, option.answer)">
+                <span class="conflict-device">{{ conflictDeviceLabel(option.deviceId) }}</span>
+                <span class="conflict-answer">{{ option.answer || '（空答案）' }}</span>
+                <span class="conflict-time">{{ formatDate(option.createdAt) }}</span>
+              </button>
+            </div>
+          </div>
+        </article>
 
         <div class="section-head">
           <h3>课程库</h3>
